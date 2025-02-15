@@ -15,7 +15,7 @@ def dynamics_update(t, x, u, params):
     #extract out params
     km, kt, Ix, Iy, Iz = map(params.get, ['km', 'kt', 'Ix', 'Iy', 'Iz'])
     I = np.diag([Ix, Iy, Iz])
-    D = np.diag([0.001, 0.001, 0.001])
+    D = np.diag([0.1, 0.1, 0.1])
     
     #extract out inputs into readable notation
     m1 = u[0]
@@ -34,7 +34,7 @@ def dynamics_update(t, x, u, params):
     tau_yaw = km * (m1 - m2 + m3 -m4)
     torque = np.array([tau_roll, tau_pitch, tau_yaw])
     
-    omegadot = np.linalg.inv(I) @ (torque-np.cross(omega, I @ omega)-D @ omega)
+    omegadot = np.linalg.inv(I) @ (torque-np.cross(omega, I @ omega)- D @ omega)
 
     return omegadot
 
