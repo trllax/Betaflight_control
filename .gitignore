@@ -2,3 +2,6 @@
 # .gitignore
 src/flight/__pycache__/
 *.py[cod]
+# .gitignore
+.DS_Store
+
