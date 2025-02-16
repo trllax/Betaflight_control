@@ -40,7 +40,7 @@ def dynamics_update(t, x, u, params):
 
 #def dynamics_output(t, x, u, params):
 #    return np.array([x[0]])
-
+'''
 
 
 params = {'km':0.1, 'kt': 1.5, 'Ix': 1, 'Iy':1, 'Iz':1}
@@ -94,3 +94,4 @@ plt.plot(timepts, response.outputs[2], label = 'yaw')
 plt.legend()
 
 
+'''

@@ -26,11 +26,7 @@ def pt1_output(t, x, u, params):
     return np.array([x[0]])
 
 
-pt1filter = ct.nlsys(
-    pt1_update, pt1_output, name='pt1',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=1,
-    outputs=1, inputs=1, dt = 1/8000)
+
 
 
 def pt2_update(t, x, u, params):
@@ -45,11 +41,7 @@ def pt2_update(t, x, u, params):
 def pt2_output(t, x, u, params):
     return np.array([x[0]])
 
-pt2filter = ct.nlsys(
-    pt2_update, pt2_output, name='pt2',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=2,
-    outputs=1, inputs=1, dt = 1/8000)
+
 
 
 def pt3_update(t, x, u, params):
@@ -64,13 +56,6 @@ def pt3_update(t, x, u, params):
 
 def pt3_output(t, x, u, params):
     return np.array([x[0]])
-
-pt3filter = ct.nlsys(
-    pt3_update, pt3_output, name='pt3',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=3,
-    outputs=1, inputs=1, dt = 1/8000)
-
 
 
 def biquad_update(t, x, u, params):
@@ -120,6 +105,28 @@ def biquad_update(t, x, u, params):
 def biquad_output(t, x, u, params):
     return np.array([x[2]])
 
+
+
+'''
+pt1filter = ct.nlsys(
+    pt1_update, pt1_output, name='pt1',
+    params= {'f_cut':100, 'dT':1/8000},
+    states=1,
+    outputs=1, inputs=1, dt = 1/8000)
+
+pt2filter = ct.nlsys(
+    pt2_update, pt2_output, name='pt2',
+    params= {'f_cut':100, 'dT':1/8000},
+    states=2,
+    outputs=1, inputs=1, dt = 1/8000)
+
+
+pt3filter = ct.nlsys(
+    pt3_update, pt3_output, name='pt3',
+    params= {'f_cut':100, 'dT':1/8000},
+    states=3,
+    outputs=1, inputs=1, dt = 1/8000)
+
 biquadfilter = ct.nlsys(
     biquad_update, biquad_output, name='biquad',
     params= {'filterFreq':100, 'dT':1/8000, 'ftype':'FILTER_NOTCH', 'Q':.5, 'weight':1},
@@ -154,3 +161,4 @@ plt.plot(timepts, response4.outputs, label = 'notch')
 
 plt.legend()
 #plt.close()
+'''
