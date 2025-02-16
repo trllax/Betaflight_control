@@ -1,0 +1,4 @@
+
+# .gitignore
+src/flight/__pycache__/
+*.py[cod]
