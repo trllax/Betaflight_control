@@ -33,15 +33,36 @@ def pt1_update(t, x, u, params):
     f_cut = params['f_cut']
     dT = params['dT']
     
-    # Correct the cutoff frequency for PT1
-    corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT1
+    #enable adjusting filtering cutoff on the fly with u[-1] input
+    #basic stratagie is 
+    try:
+        dyn = params['dyn']
+    except: 
+        dyn = 'STATIC'
     
-    # Calculate angular frequency and gain
-    omega = 2.0 * np.pi * corrected_f_cut * dT
-    k = omega / (1 + omega)
-    
-    # Update each state based on corresponding input
-    new_state = x + k * (u - x)
+    if dyn == 'DYNAMIC':
+        n = len(x)
+        sig_input = u[:n]
+        cut_input = u[-1]
+        corrected_f_cut = cut_input * CUTOFF_CORRECTION_PT1
+        
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+        
+        # Update each state based on corresponding input
+        new_state = x + k * (u[:n] - x)
+        
+    if dyn == 'STATIC':
+        # Correct the cutoff frequency for PT1
+        corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT1
+        
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+        
+        # Update each state based on corresponding input
+        new_state = x + k * (u - x)
     return new_state
 def pt1_output(t, x, u, params):
     """
@@ -209,7 +230,7 @@ if __name__ == "__main__":
     # Define parameters
     f_cut = 500
     # Signal parameters
-    SIGNAL_DURATION = 0.251  # Duration of the signal in seconds
+    SIGNAL_DURATION = 1  # Duration of the signal in seconds
     SAMPLE_RATE = 4000  # Sampling rate in Hz
     X0 = np.zeros((1,0))
     
@@ -220,6 +241,12 @@ if __name__ == "__main__":
         params= {'f_cut':f_cut, 'dT':1/SAMPLE_RATE},
         states=1,
         outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    pt1filter_dyn = ct.nlsys(
+        pt1_update, pt1_output, name='pt1',
+        params= {'f_cut':f_cut, 'dT':1/SAMPLE_RATE, 'dyn':'DYNAMIC'},
+        states=1,
+        outputs=1, inputs=2, dt = 1/SAMPLE_RATE)
     
     pt2filter = ct.nlsys(
         pt2_update, pt2_output, name='pt2',
@@ -256,6 +283,11 @@ if __name__ == "__main__":
     # Generate chirp signal
     chirp_signal = Chirp(time_points, amplitude=1, duration=SIGNAL_DURATION, start_freq=400, end_freq=600)
     
+    #generate constant freq for dynamic testing
+    chirp_0 = Chirp(time_points, amplitude=1, duration=SIGNAL_DURATION, start_freq=400, end_freq=400)
+    dyn_sig = -1 *time_points * 800 + (f_cut+400)
+    u_dyn = np.vstack((chirp_0.sig,dyn_sig))
+    
     response1 = ct.input_output_response(
         pt1filter, time_points, chirp_signal.sig)
     response2 = ct.input_output_response(
@@ -266,6 +298,10 @@ if __name__ == "__main__":
         biquadfilter, time_points, chirp_signal.sig)
     response5 = ct.input_output_response(
         biquadfilterlpf, time_points, chirp_signal.sig)
+    
+    #dynamic test
+    response6 = ct.input_output_response(
+        pt1filter_dyn, time_points, u_dyn)
     
     
     plt.figure(figsize=(12, 8))
@@ -279,6 +315,21 @@ if __name__ == "__main__":
     plt.plot(chirp_signal.freq, response5.outputs, label='biquad', alpha=0.5)
     
     plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Amplitude')
+    plt.title('Frequency Response of Various Filters')
+    plt.legend()
+    plt.grid(True, which="both", ls="-", alpha=0.2)
+    plt.show()
+    
+    #test the dynamic filter
+    plt.figure(figsize=(12, 8))
+    
+    # Use 'alpha' for transparency
+    plt.plot(time_points, chirp_signal.sig, label='input', alpha=0.5)
+    plt.plot(time_points, response6.outputs[0], label='pt1_dyn', alpha=0.5)
+
+    
+    plt.xlabel('Dyn Cutoff Frequency [Hz]')
     plt.ylabel('Amplitude')
     plt.title('Frequency Response of Various Filters')
     plt.legend()
