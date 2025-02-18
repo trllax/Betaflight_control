@@ -180,6 +180,29 @@ def generate_chirp(t, amplitude, duration, start_freq, end_freq):
     # Compute the chirp signal using the formula for a linear chirp
     return amplitude * np.sin(2 * np.pi * (start_freq * t + freq_rate * t**2 / 2))
 
+class Chirp:
+    def __init__(self, t, amplitude, duration, start_freq, end_freq):
+        """
+        Initialize a Chirp object with signal and frequency data.
+
+        Parameters:
+        t (array-like): Time points at which to compute the signal.
+        amplitude (float): Amplitude of the chirp signal.
+        duration (float): Duration of the chirp in seconds.
+        start_freq (float): Starting frequency of the chirp in Hz.
+        end_freq (float): Ending frequency of the chirp in Hz.
+        """
+        # Calculate the frequency sweep rate
+        freq_rate = (end_freq - start_freq) / duration
+        
+        # Compute the chirp signal using the formula for a linear chirp
+        self.sig = amplitude * np.sin(2 * np.pi * (start_freq * t + freq_rate * t**2 / 2))
+        
+        # Calculate the instantaneous frequency
+        self.freq = start_freq + freq_rate * t
+
+    def __repr__(self):
+        return f"Chirp(sig={self.sig.shape}, freq={self.freq.shape})"
 
 
 if __name__ == "__main__":
@@ -187,7 +210,7 @@ if __name__ == "__main__":
     f_cut = 500
     # Signal parameters
     SIGNAL_DURATION = 0.251  # Duration of the signal in seconds
-    SAMPLE_RATE = 16000  # Sampling rate in Hz
+    SAMPLE_RATE = 4000  # Sampling rate in Hz
     X0 = np.zeros((1,0))
     
     
@@ -213,7 +236,13 @@ if __name__ == "__main__":
     
     biquadfilter = ct.nlsys(
         biquad_update, biquad_output, name='biquad',
-        params= {'filterFreq':500, 'dT':1/SAMPLE_RATE, 'ftype':'FILTER_NOTCH', 'Q':7.0, 'weight':1},
+        params= {'filterFreq':f_cut, 'dT':1/SAMPLE_RATE, 'ftype':'FILTER_NOTCH', 'Q':7.0, 'weight':1},
+        states=4,
+        outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    biquadfilterlpf = ct.nlsys(
+        biquad_update, biquad_output, name='biquad',
+        params= {'filterFreq':f_cut, 'dT':1/SAMPLE_RATE, 'ftype':'FILTER_LPF', 'Q':1/np.sqrt(2), 'weight':1},
         states=4,
         outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
     
@@ -225,28 +254,56 @@ if __name__ == "__main__":
     time_points = np.linspace(0, SIGNAL_DURATION, int(SIGNAL_DURATION * SAMPLE_RATE + 1))
     
     # Generate chirp signal
-    chirp_signal = generate_chirp(time_points, amplitude=1, duration=SIGNAL_DURATION, start_freq=1, end_freq=1000)
+    chirp_signal = Chirp(time_points, amplitude=1, duration=SIGNAL_DURATION, start_freq=400, end_freq=600)
     
-    response = ct.input_output_response(
-        pt1filter, time_points, chirp_signal)
+    response1 = ct.input_output_response(
+        pt1filter, time_points, chirp_signal.sig)
     response2 = ct.input_output_response(
-        pt2filter, time_points, chirp_signal)
+        pt2filter, time_points, chirp_signal.sig)
     response3 = ct.input_output_response(
-        pt3filter, time_points, chirp_signal)
+        pt3filter, time_points, chirp_signal.sig)
     response4 = ct.input_output_response(
-        biquadfilter, time_points, chirp_signal)
+        biquadfilter, time_points, chirp_signal.sig)
+    response5 = ct.input_output_response(
+        biquadfilterlpf, time_points, chirp_signal.sig)
     
     
-    labels = ['input', 'pt1', 'pt2', 'pt3', 'notch', 'biquad']
-    #for i in range(labels):
-    #    plt.plot(t, y[:, i], label=labels[i])
-    #    plt.plot(t, np.ones_like(t) * u[i], '--', label=f'Input {labels[i]}')
-        
-    plt.plot(time_points, chirp_signal, label = 'input')
-    plt.plot(time_points, response.outputs, label='pt1')
-    plt.plot(time_points, response2.outputs, label = 'pt2')
-    plt.plot(time_points, response3.outputs, label = 'pt3')
-    plt.plot(time_points, response4.outputs, label = 'notch')
+    plt.figure(figsize=(12, 8))
     
+    # Use 'alpha' for transparency
+    plt.plot(chirp_signal.freq, chirp_signal.sig, label='input', alpha=0.5)
+    plt.plot(chirp_signal.freq, response1.outputs, label='pt1', alpha=0.5)
+    plt.plot(chirp_signal.freq, response2.outputs, label='pt2', alpha=0.5)
+    plt.plot(chirp_signal.freq, response3.outputs, label='pt3', alpha=0.5)
+    plt.plot(chirp_signal.freq, response4.outputs, label='notch', alpha=0.5)
+    plt.plot(chirp_signal.freq, response5.outputs, label='biquad', alpha=0.5)
+    
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('Amplitude')
+    plt.title('Frequency Response of Various Filters')
     plt.legend()
-    #plt.close()
+    plt.grid(True, which="both", ls="-", alpha=0.2)
+    plt.show()
+    
+    import plotly.graph_objects as go
+    import plotly.io as pio
+
+    pio.renderers.default = "browser"  # or you can try 'firefox', 'chrome', etc., based on your browser
+    # Your Plotly code here
+    fig = go.Figure()
+    
+    # Add each trace with some transparency
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=chirp_signal.sig, mode='lines', name='input', line=dict(width=2, color='blue',)))
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=response1.outputs, mode='lines', name='pt1', line=dict(width=2, color='red',)))
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=response2.outputs, mode='lines', name='pt2', line=dict(width=2, color='green',)))
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=response3.outputs, mode='lines', name='pt3', line=dict(width=2, color='purple',)))
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=response4.outputs, mode='lines', name='notch', line=dict(width=2, color='orange',)))
+    fig.add_trace(go.Scatter(x=chirp_signal.freq, y=response5.outputs, mode='lines', name='biquad', line=dict(width=2, color='cyan',)))
+    
+    # 
+    fig.update_xaxes(title_text='Frequency [Hz]')
+    fig.update_yaxes(title_text='Amplitude')
+    fig.update_layout(title_text='Frequency Response of Various Filters')
+    
+    # Show the plot
+    fig.show()
