@@ -90,55 +90,55 @@ def sampled_data_controller(controller, plant_dt):
     return ct.ss(updatefunction, outputfunction, dt=plant_dt, 
                  name=controller.name, inputs=controller.input_labels, 
                  outputs=controller.output_labels, states=controller.state_labels)
-
 '''
+if __name__ == "__main__":
 
-params = {'dT':1/4000}
-dt = ct.nlsys(
-    dtupdate, dtoutput, name='dt',
-    params= params,
-    states=4,
-    outputs=2, inputs=2, dt = 1/4000)
-
-params = {'dT':1/4000, 'k': np.array([2,2,2])}
-iterm = ct.nlsys(
-    intupdate, None, name='iterm',
-    params= params,
-    states=3,
-    outputs=3, inputs=3, dt = 1/4000)
-
-
-
-dt = dtss([1,1,1],1/4000)
-
-def chirp(t, A, T, f0, f1):
-    k = (f1 - f0)/T
-    return A * np.sin(2*np.pi* (f0*t+k*t**2/2))
-
-
-duration = .25
-timepts = np.linspace(0, duration,int(duration*4000 + 1))
-inpt = chirp(timepts, 1, duration, 1, 50)
-inpt2 = 1* np.vstack((inpt, inpt, inpt)) #+ 10* timepts
-inpt = np.vstack((inpt, inpt))
-
-response = ct.input_output_response(
-    dt, timepts, inpt2)
-
-response2 = ct.input_output_response(
-    iterm, timepts, inpt2)
-
-response3 = ct.forced_response(dt,U = inpt2)
-
-
-
-plt.plot(timepts, inpt2[0], label = 'input')
-plt.plot(timepts, response3.outputs[0]/1000, label='dt')
-
-plt.plot(timepts, inpt2[0], label = 'input')
-plt.plot(timepts, response2.outputs[0], label='iterm')
-
-
-plt.legend()
-#plt.close()
-'''
+    params = {'dT':1/4000}
+    dt = ct.nlsys(
+        dtupdate, dtoutput, name='dt',
+        params= params,
+        states=4,
+        outputs=2, inputs=2, dt = 1/4000)
+    
+    params = {'dT':1/4000, 'k': np.array([2,2,2])}
+    iterm = ct.nlsys(
+        intupdate, None, name='iterm',
+        params= params,
+        states=3,
+        outputs=3, inputs=3, dt = 1/4000)
+    
+    
+    
+    dt = dtss([1,1,1],[1,1,1],1/4000)
+    
+    def chirp(t, A, T, f0, f1):
+        k = (f1 - f0)/T
+        return A * np.sin(2*np.pi* (f0*t+k*t**2/2))
+    
+    
+    duration = .25
+    timepts = np.linspace(0, duration,int(duration*4000 + 1))
+    inpt = chirp(timepts, 1, duration, 1, 50)
+    inpt2 = 1* np.vstack((inpt, inpt, inpt)) #+ 10* timepts
+    inpt = np.vstack((inpt, inpt))
+    
+    response = ct.input_output_response(
+        dt, timepts, inpt2)
+    
+    response2 = ct.input_output_response(
+        iterm, timepts, inpt2)
+    
+    response3 = ct.forced_response(dt,U = inpt2)
+    
+    
+    
+    plt.plot(timepts, inpt2[0], label = 'input')
+    plt.plot(timepts, response3.outputs[0]/1000, label='dt')
+    
+    plt.plot(timepts, inpt2[0], label = 'input')
+    plt.plot(timepts, response2.outputs[0], label='iterm')
+    
+    
+    plt.legend()
+    #plt.close()
+    '''
