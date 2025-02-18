@@ -89,16 +89,30 @@ def pt2_update(t, x, u, params):
     """
     f_cut = params['f_cut']
     dT = params['dT']
-    n = len(u)
-    # Correct the cutoff frequency for PT2
-    corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT2
     
-    # Calculate angular frequency and gain
-    omega = 2.0 * np.pi * corrected_f_cut * dT
-    k = omega / (1 + omega)
+    try:
+        dyn = params['dyn']
+    except: 
+        dyn = 'STATIC'
+        
+    n = len(x)//2
     
+    if dyn == 'DYNAMIC':
+        corrected_f_cut = u[-1] * CUTOFF_CORRECTION_PT2
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+        
+    if dyn == 'STATIC':
+        # Correct the cutoff frequency for PT2
+        corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT2
+        
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+        
     # Update states for each dimension
-    state1 = x[n:] + k * (u - x[n:])  # Update intermediate state
+    state1 = x[n:] + k * (u[:n] - x[n:])  # Update intermediate state
     state = x[:n] + k * (state1 - x[:n])  # Update final state using updated state1
     
     # Combine updated states
@@ -115,23 +129,46 @@ def pt2_output(t, x, u, params):
     Returns:
     numpy.ndarray: The current state vector's first column as the output, shape (n_dimensions,).
     """
-    n = len(u)
+    n = len(x)//2
     return x[:n]  # Only the first states are the output
 
 
 
 def pt3_update(t, x, u, params):
-    f_cut, dT = map(params.get, ['f_cut', 'dT'])
-    f_cut  = f_cut * 1.961459177
-    omega = 2.0 * np.pi * f_cut * dT
+    f_cut = params['f_cut']
+    dT = params['dT']
+    
+    try:
+        dyn = params['dyn']
+    except: 
+        dyn = 'STATIC'
+        
+    n = len(x)//3
+    
+    if dyn == 'DYNAMIC':
+        corrected_f_cut = u[-1] * CUTOFF_CORRECTION_PT3
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+        
+    if dyn == 'STATIC':
+        # Correct the cutoff frequency for PT3
+        corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT3
+        
+        # Calculate angular frequency and gain
+        omega = 2.0 * np.pi * corrected_f_cut * dT
+        k = omega / (1 + omega)
+    
+    omega = 2.0 * np.pi * corrected_f_cut * dT
     k = omega / (1+ omega)
-    state2 = x[2] + k* (u[0]-x[2])
-    state1 = x[1] + k * (x[2] - x[1])
-    state = x[0] + k * (x[1] - x[0])
-    return np.array([state, state1, state2])
+    state2 = x[2*n:3*n] + k * (u[:n]-x[2*n:3*n])
+    state1 = x[n:2*n] + k * (x[2*n:3*n] - x[n:2*n])
+    state = x[:n] + k * (x[n:2*n] - x[:n])
+    return np.column_stack((state, state1, state2))
 
 def pt3_output(t, x, u, params):
-    return np.array([x[0]])
+    n = len(x)//3
+    return x[:n]
 
 
 def biquad_update(t, x, u, params):
