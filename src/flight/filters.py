@@ -15,32 +15,87 @@ import matplotlib.pyplot as plt
 #define CUTOFF_CORRECTION_PT3 1.961459177f
 
 
+# Constants for cutoff frequency correction (PT1 correction is 1)
+CUTOFF_CORRECTION_PT1 = 1.0
+CUTOFF_CORRECTION_PT2 = 1.553773974
+CUTOFF_CORRECTION_PT3 = 1.961459177
+
+#I/O definitions of filters able to take ndimensinal vector inputs
 def pt1_update(t, x, u, params):
-    f_cut, dT = map(params.get, ['f_cut', 'dT'])
-    omega = 2.0 * np.pi * f_cut * dT
-    k = omega / (1+ omega)
-    state = x[0] + k * (u[0] - x[0])
-    return np.array([state])
-
+    """
+    Update the state of the PT1 filter for vector inputs.
+    :param t: Current time (not used in this model)
+    :param x: Current state vector (array of length equal to input vector)
+    :param u: Input signal vector
+    :param params: Dictionary containing 'f_cut' (cutoff frequency in Hz) and 'dT' (time step)
+    :return: Updated state vector
+    """
+    f_cut = params['f_cut']
+    dT = params['dT']
+    
+    # Correct the cutoff frequency for PT1
+    corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT1
+    
+    # Calculate angular frequency and gain
+    omega = 2.0 * np.pi * corrected_f_cut * dT
+    k = omega / (1 + omega)
+    
+    # Update each state based on corresponding input
+    new_state = x + k * (u - x)
+    return new_state
 def pt1_output(t, x, u, params):
-    return np.array([x[0]])
-
-
-
+    """
+    Output function for the PT1 filter for vector inputs.
+    :param t: Current time (not used in this model)
+    :param x: Current state vector
+    :param u: Input signal vector (not used in this model)
+    :param params: Parameters (not used in this model)
+    :return: The current state vector as the output
+    """
+    return x
 
 
 def pt2_update(t, x, u, params):
-    f_cut, dT = map(params.get, ['f_cut', 'dT'])
-    f_cut  = f_cut * 1.553773974
-    omega = 2.0 * np.pi * f_cut * dT
-    k = omega / (1+ omega)
-    state1 = x[1] + k * (u[0] - x[1])
-    state = x[0] + k * (x[1] - x[0])
-    return np.array([state, state1])
+    """
+    Update the states of the PT2 filter for vector inputs.
+    Parameters:
+    t (float): Current time (not used in this model but included for consistency).
+    x (numpy.ndarray): Current state vector, shape (n_dimensions, 2).
+    u (numpy.ndarray): Input signal vector, shape (n_dimensions,).
+    params (dict): Dictionary containing 'f_cut' (cutoff frequency in Hz) and 'dT' (time step).
+    Returns:
+    numpy.ndarray: Updated state vector, shape (n_dimensions, 2).
+    """
+    f_cut = params['f_cut']
+    dT = params['dT']
+    n = len(u)
+    # Correct the cutoff frequency for PT2
+    corrected_f_cut = f_cut * CUTOFF_CORRECTION_PT2
+    
+    # Calculate angular frequency and gain
+    omega = 2.0 * np.pi * corrected_f_cut * dT
+    k = omega / (1 + omega)
+    
+    # Update states for each dimension
+    state1 = x[n:] + k * (u - x[n:])  # Update intermediate state
+    state = x[:n] + k * (state1 - x[:n])  # Update final state using updated state1
+    
+    # Combine updated states
+    return np.column_stack((state, state1))
 
 def pt2_output(t, x, u, params):
-    return np.array([x[0]])
-
+    """
+    Output function for the PT2 filter for vector inputs.
+    Parameters:
+    t (float): Current time (not used in this model).
+    x (numpy.ndarray): Current state vector, shape (n_dimensions, 2).
+    u (numpy.ndarray): Input signal vector (not used in this model).
+    params (dict): Parameters (not used in this model).
+    Returns:
+    numpy.ndarray: The current state vector's first column as the output, shape (n_dimensions,).
+    """
+    n = len(u)
+    return x[:n]  # Only the first states are the output
 
 
 
@@ -105,60 +160,93 @@ def biquad_update(t, x, u, params):
 def biquad_output(t, x, u, params):
     return np.array([x[2]])
 
+def generate_chirp(t, amplitude, duration, start_freq, end_freq):
+    """
+    Generate a chirp signal.
+
+    Parameters:
+    t (array-like): Time points at which to compute the signal.
+    amplitude (float): Amplitude of the chirp signal.
+    duration (float): Duration of the chirp in seconds.
+    start_freq (float): Starting frequency of the chirp in Hz.
+    end_freq (float): Ending frequency of the chirp in Hz.
+
+    Returns:
+    numpy.ndarray: The chirp signal evaluated at the given time points.
+    """
+    # Calculate the frequency sweep rate
+    freq_rate = (end_freq - start_freq) / duration
+    
+    # Compute the chirp signal using the formula for a linear chirp
+    return amplitude * np.sin(2 * np.pi * (start_freq * t + freq_rate * t**2 / 2))
 
 
-'''
-pt1filter = ct.nlsys(
-    pt1_update, pt1_output, name='pt1',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=1,
-    outputs=1, inputs=1, dt = 1/8000)
 
-pt2filter = ct.nlsys(
-    pt2_update, pt2_output, name='pt2',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=2,
-    outputs=1, inputs=1, dt = 1/8000)
+if __name__ == "__main__":
+    # Define parameters
+    f_cut = 500
+    # Signal parameters
+    SIGNAL_DURATION = 0.251  # Duration of the signal in seconds
+    SAMPLE_RATE = 16000  # Sampling rate in Hz
+    X0 = np.zeros((1,0))
+    
+    
+    #initialize filters 
+    pt1filter = ct.nlsys(
+        pt1_update, pt1_output, name='pt1',
+        params= {'f_cut':f_cut, 'dT':1/SAMPLE_RATE},
+        states=1,
+        outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    pt2filter = ct.nlsys(
+        pt2_update, pt2_output, name='pt2',
+        params= {'f_cut':f_cut, 'dT':1/SAMPLE_RATE},
+        states=2,
+        outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    
+    pt3filter = ct.nlsys(
+        pt3_update, pt3_output, name='pt3',
+        params= {'f_cut':f_cut, 'dT':1/SAMPLE_RATE},
+        states=3,
+        outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    biquadfilter = ct.nlsys(
+        biquad_update, biquad_output, name='biquad',
+        params= {'filterFreq':500, 'dT':1/SAMPLE_RATE, 'ftype':'FILTER_NOTCH', 'Q':7.0, 'weight':1},
+        states=4,
+        outputs=1, inputs=1, dt = 1/SAMPLE_RATE)
+    
+    
+    
 
-
-pt3filter = ct.nlsys(
-    pt3_update, pt3_output, name='pt3',
-    params= {'f_cut':100, 'dT':1/8000},
-    states=3,
-    outputs=1, inputs=1, dt = 1/8000)
-
-biquadfilter = ct.nlsys(
-    biquad_update, biquad_output, name='biquad',
-    params= {'filterFreq':100, 'dT':1/8000, 'ftype':'FILTER_NOTCH', 'Q':.5, 'weight':1},
-    states=4,
-    outputs=1, inputs=1, dt = 1/8000)
-
-
-def chirp(t, A, T, f0, f1):
-    k = (f1 - f0)/T
-    return A * np.sin(2*np.pi* (f0*t+k*t**2/2))
-
-
-duration = .251
-timepts = np.linspace(0, duration,int(duration*8000 + 1))
-inpt = chirp(timepts, 1, duration, 1, 200)
-
-response = ct.input_output_response(
-    pt1filter, timepts, inpt)
-response2 = ct.input_output_response(
-    pt2filter, timepts, inpt)
-response3 = ct.input_output_response(
-    pt3filter, timepts, inpt)
-response4 = ct.input_output_response(
-    biquadfilter, timepts, inpt)
-
-
-plt.plot(timepts, inpt, label = 'input')
-plt.plot(timepts, response.outputs, label='pt1')
-plt.plot(timepts, response2.outputs, label = 'pt2')
-plt.plot(timepts, response3.outputs, label = 'pt3')
-plt.plot(timepts, response4.outputs, label = 'notch')
-
-plt.legend()
-#plt.close()
-'''
+    
+    # Generate time points
+    time_points = np.linspace(0, SIGNAL_DURATION, int(SIGNAL_DURATION * SAMPLE_RATE + 1))
+    
+    # Generate chirp signal
+    chirp_signal = generate_chirp(time_points, amplitude=1, duration=SIGNAL_DURATION, start_freq=1, end_freq=1000)
+    
+    response = ct.input_output_response(
+        pt1filter, time_points, chirp_signal)
+    response2 = ct.input_output_response(
+        pt2filter, time_points, chirp_signal)
+    response3 = ct.input_output_response(
+        pt3filter, time_points, chirp_signal)
+    response4 = ct.input_output_response(
+        biquadfilter, time_points, chirp_signal)
+    
+    
+    labels = ['input', 'pt1', 'pt2', 'pt3', 'notch', 'biquad']
+    #for i in range(labels):
+    #    plt.plot(t, y[:, i], label=labels[i])
+    #    plt.plot(t, np.ones_like(t) * u[i], '--', label=f'Input {labels[i]}')
+        
+    plt.plot(time_points, chirp_signal, label = 'input')
+    plt.plot(time_points, response.outputs, label='pt1')
+    plt.plot(time_points, response2.outputs, label = 'pt2')
+    plt.plot(time_points, response3.outputs, label = 'pt3')
+    plt.plot(time_points, response4.outputs, label = 'notch')
+    
+    plt.legend()
+    #plt.close()
